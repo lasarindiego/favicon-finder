@@ -223,11 +223,11 @@
     <div class="row">
       <div>
         <label class="field-label" for="f-title" id="label-title">Nome (opcional)</label>
-        <input type="text" id="f-title" placeholder="Ex: Nubank">
+        <input type="text" id="f-title" placeholder="Ex: Nome do site">
       </div>
       <div style="flex:1; min-width: 180px;">
         <label class="field-label" for="f-domain" id="label-domain">Domínio ou URL</label>
-        <input type="text" id="f-domain" placeholder="Ex: nubank.com.br">
+        <input type="text" id="f-domain" placeholder="Ex: exemplo.com">
       </div>
       <button id="btn-add" class="btn-primary" style="align-self: flex-end;">Adicionar</button>
     </div>
@@ -236,7 +236,7 @@
       <summary id="advanced-summary">Importar vários de uma vez</summary>
       <div class="inner">
         <label class="field-label" id="label-bulk">Colar lista (uma por linha — "Nome, dominio.com" ou só o domínio)</label>
-        <textarea id="bulk-text" placeholder="Nubank, nubank.com.br&#10;discord.com&#10;Disney+, disneyplus.com"></textarea>
+        <textarea id="bulk-text" placeholder="Nome do site, exemplo.com&#10;exemplo2.com.br&#10;Outro Site, exemplo3.com"></textarea>
         <div class="row" style="margin-top: 8px;">
           <button id="btn-bulk-add">Adicionar lista colada</button>
           <span style="color: var(--muted); font-size: 12px;" id="or-word">ou</span>
@@ -291,13 +291,13 @@ const I18N = {
     subtitle: 'Digite um domínio pra buscar o ícone, ou importe uma lista em lote.',
     panelH2: 'Adicionar um site',
     labelTitle: 'Nome (opcional)',
-    titlePlaceholder: 'Ex: Nubank',
+    titlePlaceholder: 'Ex: Nome do site',
     labelDomain: 'Domínio ou URL',
-    domainPlaceholder: 'Ex: nubank.com.br',
+    domainPlaceholder: 'Ex: exemplo.com',
     btnAdd: 'Adicionar',
     advancedSummary: 'Importar vários de uma vez',
     labelBulk: 'Colar lista (uma por linha — "Nome, dominio.com" ou só o domínio)',
-    bulkPlaceholder: 'Nubank, nubank.com.br\ndiscord.com\nDisney+, disneyplus.com',
+    bulkPlaceholder: 'Nome do site, exemplo.com\nexemplo2.com.br\nOutro Site, exemplo3.com',
     btnBulkAdd: 'Adicionar lista colada',
     orWord: 'ou',
     hintText: 'O arquivo/planilha deve ter colunas de título e URL (aceita o export do 1Password: Título + Url). Nada é enviado pra nenhum servidor — tudo é lido localmente no seu navegador.',
@@ -328,13 +328,13 @@ const I18N = {
     subtitle: 'Type a domain to fetch its icon, or import a list in bulk.',
     panelH2: 'Add a site',
     labelTitle: 'Name (optional)',
-    titlePlaceholder: 'E.g. Nubank',
+    titlePlaceholder: 'E.g. Site name',
     labelDomain: 'Domain or URL',
-    domainPlaceholder: 'E.g. nubank.com.br',
+    domainPlaceholder: 'E.g. example.com',
     btnAdd: 'Add',
     advancedSummary: 'Import several at once',
     labelBulk: 'Paste a list (one per line — "Name, domain.com" or just the domain)',
-    bulkPlaceholder: 'Nubank, nubank.com.br\ndiscord.com\nDisney+, disneyplus.com',
+    bulkPlaceholder: 'Site name, example.com\nexample2.com\nAnother Site, example3.com',
     btnBulkAdd: 'Add pasted list',
     orWord: 'or',
     hintText: 'The file/spreadsheet should have title and URL columns (accepts the 1Password export: Title + Url). Nothing is sent to any server — everything is read locally in your browser.',
