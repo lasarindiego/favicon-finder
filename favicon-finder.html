@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="pt-BR" id="html-root">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title id="page-title">Buscador de Favicons</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #10131a;
+    --panel: #161a24;
+    --panel-2: #1d2230;
+    --border: #2a3040;
+    --text: #e7e9ee;
+    --muted: #8b93a6;
+    --accent: #5fa8ff;
+    --accent-2: #7ee0b8;
+    --danger: #ff8a8a;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  header {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+    background: rgba(16, 19, 26, 0.94);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;
+  }
+  h1 {
+    font-size: 17px; font-weight: 650; margin: 0 0 2px;
+    letter-spacing: -0.01em;
+  }
+  h1 span { color: var(--muted); font-weight: 450; }
+  .subtitle { font-size: 12.5px; color: var(--muted); }
+
+  .lang-switch {
+    display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    flex-shrink: 0;
+  }
+  .lang-switch button {
+    border: none; border-radius: 0; background: var(--panel-2);
+    padding: 7px 12px; font-size: 12px; font-weight: 600;
+  }
+  .lang-switch button.active { background: var(--accent); color: #05131f; }
+  .lang-switch button:hover:not(.active) { background: #232838; }
+
+  main { padding: 24px; max-width: 1100px; margin: 0 auto; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+  .panel h2 {
+    font-size: 13.5px; font-weight: 650; margin: 0 0 12px;
+    color: var(--text);
+  }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  label.field-label {
+    font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px;
+  }
+  input[type="text"], textarea {
+    font: inherit;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 13.5px;
+  }
+  input[type="text"]::placeholder, textarea::placeholder { color: var(--muted); }
+  input#f-domain { flex: 1; min-width: 180px; }
+  input#f-title { width: 200px; }
+  textarea#bulk-text { width: 100%; min-height: 100px; resize: vertical; font-family: ui-monospace, monospace; font-size: 12.5px; }
+
+  button, .btn {
+    font: inherit;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    white-space: nowrap;
+  }
+  button:hover { border-color: #3a4256; background: #232838; }
+  button:disabled { opacity: .45; cursor: default; }
+  .btn-primary {
+    background: var(--accent);
+    color: #05131f;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #79b8ff; border-color: #79b8ff; }
+  .btn-danger-outline { color: var(--danger); border-color: #4a2f33; }
+
+  details.advanced { margin-top: 12px; }
+  details.advanced summary {
+    cursor: pointer; font-size: 12.5px; color: var(--accent);
+    user-select: none;
+  }
+  details.advanced .inner { margin-top: 12px; }
+  .hint { font-size: 11.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+  input[type="file"] { font-size: 12.5px; color: var(--muted); }
+
+  .status-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    color: var(--muted); font-size: 13px; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+  }
+  #progress-wrap {
+    display: none;
+    height: 6px; border-radius: 3px; background: var(--panel-2);
+    overflow: hidden; margin-bottom: 14px;
+  }
+  #progress-bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width .2s;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 10px 10px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    text-align: center;
+    position: relative;
+    transition: border-color .15s;
+  }
+  .card:hover { border-color: #3a4256; }
+  .card.excluded { opacity: .35; }
+  .card.failed .icon-box { border-color: var(--danger); }
+  .checkbox {
+    position: absolute; top: 8px; left: 8px;
+    width: 16px; height: 16px; cursor: pointer;
+    accent-color: var(--accent);
+  }
+  .remove-btn {
+    position: absolute; top: 6px; right: 6px;
+    width: 20px; height: 20px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent; border: 1px solid transparent;
+    color: var(--muted); font-size: 13px; line-height: 1; padding: 0;
+  }
+  .remove-btn:hover { color: var(--danger); border-color: #4a2f33; background: #201417; }
+  .icon-box {
+    width: 48px; height: 48px;
+    border-radius: 10px;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .icon-box img { width: 32px; height: 32px; object-fit: contain; }
+  .title {
+    font-size: 12.5px; font-weight: 560;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 128px;
+  }
+  .domain {
+    font-size: 10.5px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 128px;
+  }
+  a.single-dl, button.single-dl {
+    font-size: 10.5px; color: var(--accent);
+    text-decoration: none; margin-top: -2px;
+    background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+  }
+  a.single-dl:hover, button.single-dl:hover { text-decoration: underline; }
+
+  .empty-state {
+    text-align: center; color: var(--muted); font-size: 13px;
+    padding: 40px 20px; border: 1px dashed var(--border); border-radius: 12px;
+  }
+
+  footer {
+    text-align: center; color: var(--muted); font-size: 11.5px;
+    padding: 24px 24px 40px; line-height: 1.7; max-width: 640px; margin: 0 auto;
+  }
+  footer a { color: var(--accent); }
+  footer .credits-title { color: var(--text); font-weight: 600; font-size: 12.5px; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1 id="h1-title">Buscador de Favicons <span id="count-label"></span></h1>
+    <div class="subtitle" id="subtitle-text">Digite um domínio pra buscar o ícone, ou importe uma lista em lote.</div>
+  </div>
+  <div class="lang-switch">
+    <button id="lang-pt" class="active">PT-BR</button>
+    <button id="lang-en">EN</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="panel">
+    <h2 id="panel-h2">Adicionar um site</h2>
+    <div class="row">
+      <div>
+        <label class="field-label" for="f-title" id="label-title">Nome (opcional)</label>
+        <input type="text" id="f-title" placeholder="Ex: Nubank">
+      </div>
+      <div style="flex:1; min-width: 180px;">
+        <label class="field-label" for="f-domain" id="label-domain">Domínio ou URL</label>
+        <input type="text" id="f-domain" placeholder="Ex: nubank.com.br">
+      </div>
+      <button id="btn-add" class="btn-primary" style="align-self: flex-end;">Adicionar</button>
+    </div>
+
+    <details class="advanced">
+      <summary id="advanced-summary">Importar vários de uma vez</summary>
+      <div class="inner">
+        <label class="field-label" id="label-bulk">Colar lista (uma por linha — "Nome, dominio.com" ou só o domínio)</label>
+        <textarea id="bulk-text" placeholder="Nubank, nubank.com.br&#10;discord.com&#10;Disney+, disneyplus.com"></textarea>
+        <div class="row" style="margin-top: 8px;">
+          <button id="btn-bulk-add">Adicionar lista colada</button>
+          <span style="color: var(--muted); font-size: 12px;" id="or-word">ou</span>
+          <input type="file" id="file-import" accept=".csv,.xlsx,.xls">
+        </div>
+        <div class="hint" id="hint-text">O arquivo/planilha deve ter colunas de título e URL (aceita o export do 1Password: Título + Url). Nada é enviado pra nenhum servidor — tudo é lido localmente no seu navegador.</div>
+      </div>
+    </details>
+  </div>
+
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+
+  <div class="status-bar">
+    <span id="status-text">Nenhum item ainda.</span>
+    <div class="row" id="bulk-actions" style="display:none;">
+      <button id="select-all">Marcar todos</button>
+      <button id="select-none">Desmarcar todos</button>
+      <button id="btn-clear-all" class="btn-danger-outline">Limpar tudo</button>
+      <button id="btn-download" class="btn-primary">Baixar selecionados (.zip)</button>
+    </div>
+  </div>
+
+  <div id="empty-state" class="empty-state">Adicione um site acima pra começar.</div>
+  <div class="grid" id="grid"></div>
+
+</main>
+
+<footer>
+  <div class="credits-title" id="credits-title">Créditos</div>
+  <span id="credits-body">
+    Ícones fornecidos pela API pública e gratuita
+    <a href="https://favicon.im" target="_blank" rel="noopener">favicon.im</a> — muito obrigado
+    pelo serviço. Quando o navegador bloqueia o download direto, esta ferramenta usa como
+    alternativa o proxy de imagens público
+    <a href="https://wsrv.nl" target="_blank" rel="noopener">wsrv.nl (weserv)</a>, também gratuito.
+  </span>
+  <br><br>
+  <span id="disclaimer-body">
+    Esta é uma ferramenta pessoal, feita para um uso pontual e específico (reorganizar ícones de
+    itens de um gerenciador de senhas). Não tem qualquer fim lucrativo, comercial ou de
+    redistribuição — só resolve um problema doméstico de quem a criou.
+  </span>
+</footer>
+
+<script>
+// ---------------- i18n ----------------
+const LANG_KEY = 'favicon-tool-lang';
+const I18N = {
+  pt: {
+    pageTitle: 'Buscador de Favicons',
+    h1Title: 'Buscador de Favicons',
+    subtitle: 'Digite um domínio pra buscar o ícone, ou importe uma lista em lote.',
+    panelH2: 'Adicionar um site',
+    labelTitle: 'Nome (opcional)',
+    titlePlaceholder: 'Ex: Nubank',
+    labelDomain: 'Domínio ou URL',
+    domainPlaceholder: 'Ex: nubank.com.br',
+    btnAdd: 'Adicionar',
+    advancedSummary: 'Importar vários de uma vez',
+    labelBulk: 'Colar lista (uma por linha — "Nome, dominio.com" ou só o domínio)',
+    bulkPlaceholder: 'Nubank, nubank.com.br\ndiscord.com\nDisney+, disneyplus.com',
+    btnBulkAdd: 'Adicionar lista colada',
+    orWord: 'ou',
+    hintText: 'O arquivo/planilha deve ter colunas de título e URL (aceita o export do 1Password: Título + Url). Nada é enviado pra nenhum servidor — tudo é lido localmente no seu navegador.',
+    selectAll: 'Marcar todos',
+    selectNone: 'Desmarcar todos',
+    clearAll: 'Limpar tudo',
+    btnDownload: 'Baixar selecionados (.zip)',
+    emptyState: 'Adicione um site acima pra começar.',
+    noItems: 'Nenhum item ainda.',
+    itemsInList: (n) => `${n} ícone${n > 1 ? 's' : ''} na lista.`,
+    downloading: (d, t) => `Baixando... ${d}/${t}`,
+    generatingZip: (n) => `Gerando zip com ${n} ícone${n > 1 ? 's' : ''}...`,
+    doneZip: (ok, fail) => `Pronto: ${ok} ícone${ok > 1 ? 's' : ''} no zip${fail ? `, ${fail} falharam` : ''}.`,
+    zeroDownloaded: 'Não consegui baixar nenhum ícone, mesmo com o proxy. Tente o botão "baixar" individual ou clique com o botão direito na imagem.',
+    confirmClear: 'Remover todos os itens da lista?',
+    fileImportError: 'Não consegui ler esse arquivo. Confira se é um .csv ou .xlsx válido.',
+    dlBtn: 'baixar',
+    dlBtnLoading: '...',
+    dlBtnFailed: 'falhou',
+    removeTitle: 'Remover',
+    creditsTitle: 'Créditos',
+    creditsBody: 'Ícones fornecidos pela API pública e gratuita <a href="https://favicon.im" target="_blank" rel="noopener">favicon.im</a> — muito obrigado pelo serviço. Quando o navegador bloqueia o download direto, esta ferramenta usa como alternativa o proxy de imagens público <a href="https://wsrv.nl" target="_blank" rel="noopener">wsrv.nl (weserv)</a>, também gratuito.',
+    disclaimerBody: 'Esta é uma ferramenta pessoal, feita para um uso pontual e específico (reorganizar ícones de itens de um gerenciador de senhas). Não tem qualquer fim lucrativo, comercial ou de redistribuição — só resolve um problema doméstico de quem a criou.'
+  },
+  en: {
+    pageTitle: 'Favicon Finder',
+    h1Title: 'Favicon Finder',
+    subtitle: 'Type a domain to fetch its icon, or import a list in bulk.',
+    panelH2: 'Add a site',
+    labelTitle: 'Name (optional)',
+    titlePlaceholder: 'E.g. Nubank',
+    labelDomain: 'Domain or URL',
+    domainPlaceholder: 'E.g. nubank.com.br',
+    btnAdd: 'Add',
+    advancedSummary: 'Import several at once',
+    labelBulk: 'Paste a list (one per line — "Name, domain.com" or just the domain)',
+    bulkPlaceholder: 'Nubank, nubank.com.br\ndiscord.com\nDisney+, disneyplus.com',
+    btnBulkAdd: 'Add pasted list',
+    orWord: 'or',
+    hintText: 'The file/spreadsheet should have title and URL columns (accepts the 1Password export: Title + Url). Nothing is sent to any server — everything is read locally in your browser.',
+    selectAll: 'Select all',
+    selectNone: 'Deselect all',
+    clearAll: 'Clear all',
+    btnDownload: 'Download selected (.zip)',
+    emptyState: 'Add a site above to get started.',
+    noItems: 'No items yet.',
+    itemsInList: (n) => `${n} icon${n > 1 ? 's' : ''} in the list.`,
+    downloading: (d, t) => `Downloading... ${d}/${t}`,
+    generatingZip: (n) => `Generating zip with ${n} icon${n > 1 ? 's' : ''}...`,
+    doneZip: (ok, fail) => `Done: ${ok} icon${ok > 1 ? 's' : ''} in the zip${fail ? `, ${fail} failed` : ''}.`,
+    zeroDownloaded: 'Could not download any icon, even through the proxy. Try the individual "download" button or right-click the image.',
+    confirmClear: 'Remove all items from the list?',
+    fileImportError: 'Could not read that file. Check that it is a valid .csv or .xlsx.',
+    dlBtn: 'download',
+    dlBtnLoading: '...',
+    dlBtnFailed: 'failed',
+    removeTitle: 'Remove',
+    creditsTitle: 'Credits',
+    creditsBody: 'Icons provided by the free, public <a href="https://favicon.im" target="_blank" rel="noopener">favicon.im</a> API — many thanks for the service. When the browser blocks the direct download, this tool falls back to the free public image proxy <a href="https://wsrv.nl" target="_blank" rel="noopener">wsrv.nl (weserv)</a>.',
+    disclaimerBody: 'This is a personal tool, built for a specific, one-off use (reorganizing icons for items in a password manager). It has no commercial, for-profit, or redistribution purpose — it just solves a household problem for whoever built it.'
+  }
+};
+
+let LANG = localStorage.getItem(LANG_KEY) || 'pt';
+
+function t(key, ...args) {
+  const entry = I18N[LANG][key];
+  return typeof entry === 'function' ? entry(...args) : entry;
+}
+
+function applyStaticLanguage() {
+  document.getElementById('html-root').lang = LANG === 'pt' ? 'pt-BR' : 'en';
+  document.getElementById('page-title').textContent = t('pageTitle');
+  document.querySelector('#h1-title').childNodes[0].textContent = t('h1Title') + ' ';
+  document.getElementById('subtitle-text').textContent = t('subtitle');
+  document.getElementById('panel-h2').textContent = t('panelH2');
+  document.getElementById('label-title').textContent = t('labelTitle');
+  document.getElementById('f-title').placeholder = t('titlePlaceholder');
+  document.getElementById('label-domain').textContent = t('labelDomain');
+  document.getElementById('f-domain').placeholder = t('domainPlaceholder');
+  document.getElementById('btn-add').textContent = t('btnAdd');
+  document.getElementById('advanced-summary').textContent = t('advancedSummary');
+  document.getElementById('label-bulk').textContent = t('labelBulk');
+  document.getElementById('bulk-text').placeholder = t('bulkPlaceholder');
+  document.getElementById('btn-bulk-add').textContent = t('btnBulkAdd');
+  document.getElementById('or-word').textContent = t('orWord');
+  document.getElementById('hint-text').textContent = t('hintText');
+  document.getElementById('select-all').textContent = t('selectAll');
+  document.getElementById('select-none').textContent = t('selectNone');
+  document.getElementById('btn-clear-all').textContent = t('clearAll');
+  document.getElementById('btn-download').textContent = t('btnDownload');
+  document.getElementById('empty-state').textContent = t('emptyState');
+  document.getElementById('credits-title').textContent = t('creditsTitle');
+  document.getElementById('credits-body').innerHTML = t('creditsBody');
+  document.getElementById('disclaimer-body').textContent = t('disclaimerBody');
+  document.getElementById('lang-pt').classList.toggle('active', LANG === 'pt');
+  document.getElementById('lang-en').classList.toggle('active', LANG === 'en');
+}
+
+document.getElementById('lang-pt').addEventListener('click', () => {
+  LANG = 'pt'; localStorage.setItem(LANG_KEY, LANG); applyStaticLanguage(); render();
+});
+document.getElementById('lang-en').addEventListener('click', () => {
+  LANG = 'en'; localStorage.setItem(LANG_KEY, LANG); applyStaticLanguage(); render();
+});
+
+// ---------------- app logic ----------------
+const STORAGE_KEY = 'favicon-tool-items-v1';
+let ITEMS = [];
+
+const grid = document.getElementById('grid');
+const emptyState = document.getElementById('empty-state');
+const countLabel = document.getElementById('count-label');
+const statusText = document.getElementById('status-text');
+const bulkActions = document.getElementById('bulk-actions');
+const progressWrap = document.getElementById('progress-wrap');
+const progressBar = document.getElementById('progress-bar');
+const btnDownload = document.getElementById('btn-download');
+
+function slug(s) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'icone';
+}
+
+function cleanDomain(raw) {
+  if (!raw) return null;
+  let u = raw.trim();
+  if (!u) return null;
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+  try {
+    return new URL(u).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function faviconUrl(domain) {
+  return `https://a.favicon.im/${domain}?larger=true`;
+}
+function proxyUrl(domain) {
+  return `https://wsrv.nl/?url=${encodeURIComponent('a.favicon.im/' + domain + '?larger=true')}`;
+}
+
+function loadItems() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    ITEMS = raw ? JSON.parse(raw) : [];
+  } catch { ITEMS = []; }
+}
+function saveItems() {
+  try {
+    const plain = ITEMS.map(i => ({ domain: i.domain, title: i.title, checked: i.checked !== false }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(plain));
+  } catch {}
+}
+
+function render() {
+  grid.innerHTML = '';
+  countLabel.textContent = ITEMS.length ? `— ${ITEMS.length}` : '';
+  emptyState.style.display = ITEMS.length ? 'none' : 'block';
+  bulkActions.style.display = ITEMS.length ? 'flex' : 'none';
+  statusText.textContent = ITEMS.length ? t('itemsInList', ITEMS.length) : t('noItems');
+
+  ITEMS.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    if (item.checked === false) card.classList.add('excluded');
+    if (item._failed) card.classList.add('failed');
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-btn';
+    removeBtn.textContent = '✕';
+    removeBtn.title = t('removeTitle');
+    removeBtn.addEventListener('click', () => {
+      ITEMS.splice(idx, 1);
+      saveItems();
+      render();
+    });
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'checkbox';
+    cb.checked = item.checked !== false;
+    cb.addEventListener('change', () => {
+      item.checked = cb.checked;
+      card.classList.toggle('excluded', !cb.checked);
+      saveItems();
+    });
+
+    const iconBox = document.createElement('div');
+    iconBox.className = 'icon-box';
+    const img = document.createElement('img');
+    img.src = faviconUrl(item.domain);
+    img.loading = 'lazy';
+    img.alt = item.domain;
+    img.onerror = () => {
+      if (!img.dataset.retried) {
+        img.dataset.retried = '1';
+        img.src = proxyUrl(item.domain);
+      } else {
+        card.classList.add('failed');
+        item._failed = true;
+      }
+    };
+    iconBox.appendChild(img);
+
+    const title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = item.title;
+    title.title = item.title;
+
+    const domainEl = document.createElement('div');
+    domainEl.className = 'domain';
+    domainEl.textContent = item.domain;
+    domainEl.title = item.domain;
+
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'single-dl';
+    dlBtn.textContent = t('dlBtn');
+    dlBtn.addEventListener('click', async () => {
+      dlBtn.textContent = t('dlBtnLoading');
+      const blob = await fetchFaviconBlob(item.domain);
+      if (!blob) {
+        dlBtn.textContent = t('dlBtnFailed');
+        setTimeout(() => dlBtn.textContent = t('dlBtn'), 1500);
+        return;
+      }
+      downloadFile(blob, `${slug(item.title)}.${extFromBlob(blob)}`);
+      dlBtn.textContent = t('dlBtn');
+    });
+
+    card.appendChild(removeBtn);
+    card.appendChild(cb);
+    card.appendChild(iconBox);
+    card.appendChild(title);
+    card.appendChild(domainEl);
+    card.appendChild(dlBtn);
+    grid.appendChild(card);
+  });
+}
+
+function extFromBlob(blob) {
+  if (blob.type.includes('svg')) return 'svg';
+  if (blob.type.includes('jpeg')) return 'jpg';
+  if (blob.type.includes('webp')) return 'webp';
+  return 'png';
+}
+
+function downloadFile(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function fetchFaviconBlob(domain) {
+  try {
+    const res = await fetch(faviconUrl(domain), { mode: 'cors' });
+    if (res.ok) return await res.blob();
+  } catch (e) { /* fall through to proxy */ }
+  try {
+    const res2 = await fetch(proxyUrl(domain), { mode: 'cors' });
+    if (res2.ok) return await res2.blob();
+  } catch (e) { /* both failed */ }
+  return null;
+}
+
+function addItem(title, domainRaw) {
+  const domain = cleanDomain(domainRaw);
+  if (!domain) return false;
+  if (ITEMS.some(i => i.domain === domain)) return false;
+  ITEMS.push({ domain, title: title && title.trim() ? title.trim() : domain, checked: true });
+  return true;
+}
+
+document.getElementById('btn-add').addEventListener('click', () => {
+  const ti = document.getElementById('f-title').value;
+  const d = document.getElementById('f-domain').value;
+  if (addItem(ti, d)) {
+    document.getElementById('f-title').value = '';
+    document.getElementById('f-domain').value = '';
+    saveItems();
+    render();
+  }
+});
+document.getElementById('f-domain').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('btn-add').click();
+});
+
+document.getElementById('btn-bulk-add').addEventListener('click', () => {
+  const raw = document.getElementById('bulk-text').value;
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  let added = 0;
+  lines.forEach(line => {
+    let title = '', domain = line;
+    if (line.includes(',')) {
+      const parts = line.split(',');
+      title = parts[0].trim();
+      domain = parts.slice(1).join(',').trim();
+    }
+    if (addItem(title, domain)) added++;
+  });
+  if (added) {
+    document.getElementById('bulk-text').value = '';
+    saveItems();
+    render();
+  }
+});
+
+document.getElementById('file-import').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const wb = XLSX.read(evt.target.result, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      if (!rows.length) return;
+      const header = rows[0].map(h => String(h || '').toLowerCase());
+      let titleIdx = header.findIndex(h => h.includes('title') || h.includes('título') || h.includes('titulo') || h.includes('nome') || h.includes('name'));
+      let urlIdx = header.findIndex(h => h.includes('url') || h.includes('site') || h.includes('domínio') || h.includes('dominio') || h.includes('domain'));
+      if (titleIdx === -1) titleIdx = 0;
+      if (urlIdx === -1) urlIdx = 1;
+      let added = 0;
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        const title = row[titleIdx];
+        const url = row[urlIdx];
+        if (addItem(title, url)) added++;
+      }
+      if (added) { saveItems(); render(); }
+    } catch (err) {
+      alert(t('fileImportError'));
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = '';
+});
+
+document.getElementById('select-all').addEventListener('click', () => {
+  ITEMS.forEach(i => i.checked = true);
+  saveItems();
+  render();
+});
+document.getElementById('select-none').addEventListener('click', () => {
+  ITEMS.forEach(i => i.checked = false);
+  saveItems();
+  render();
+});
+document.getElementById('btn-clear-all').addEventListener('click', () => {
+  if (!confirm(t('confirmClear'))) return;
+  ITEMS = [];
+  saveItems();
+  render();
+});
+
+btnDownload.addEventListener('click', async () => {
+  const selected = ITEMS.filter(i => i.checked !== false);
+  if (!selected.length) return;
+
+  btnDownload.disabled = true;
+  progressWrap.style.display = 'block';
+  progressBar.style.width = '0%';
+
+  const zip = new JSZip();
+  let done = 0, ok = 0, fail = 0;
+  const usedNames = new Set();
+
+  for (const item of selected) {
+    const blob = await fetchFaviconBlob(item.domain);
+    if (blob) {
+      const ext = extFromBlob(blob);
+      let base = slug(item.title);
+      let name = `${base}.${ext}`;
+      let n = 2;
+      while (usedNames.has(name)) { name = `${base}-${n}.${ext}`; n++; }
+      usedNames.add(name);
+      zip.file(name, blob);
+      ok++;
+    } else {
+      fail++;
+      item._failed = true;
+    }
+    done++;
+    progressBar.style.width = Math.round(done / selected.length * 100) + '%';
+    statusText.textContent = t('downloading', done, selected.length);
+  }
+
+  render();
+
+  if (ok === 0) {
+    statusText.textContent = t('zeroDownloaded');
+    btnDownload.disabled = false;
+    return;
+  }
+
+  statusText.textContent = t('generatingZip', ok);
+  const content = await zip.generateAsync({ type: 'blob' });
+  downloadFile(content, 'favicons.zip');
+  statusText.textContent = t('doneZip', ok, fail);
+  btnDownload.disabled = false;
+});
+
+applyStaticLanguage();
+loadItems();
+render();
+</script>
+</body>
+</html>
